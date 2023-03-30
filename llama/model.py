@@ -9,32 +9,37 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-import fairscale.nn.model_parallel.initialize as fs_init
-from fairscale.nn.model_parallel.layers import (
-    ParallelEmbedding,  # TODO: change these classes to the regular versions
-    RowParallelLinear,
-    ColumnParallelLinear,
+
+from .quantized_layer import (
+    LinearQuant
 )
+
+# import fairscale.nn.model_parallel.initialize as fs_init
+# from fairscale.nn.model_parallel.layers import (
+#     ParallelEmbedding,
+#     RowParallelLinear,
+#     ColumnParallelLinear,
+# )
 
 
 @dataclass
 class ModelArgs:
-    dim: int = 4096
-    n_layers: int = 32
-    n_heads: int = 32
-    vocab_size: int = -1  # defined later by tokenizer
+    dim: int = 512 # 4096
+    n_layers: int = 8 # 32
+    n_heads: int = 8 # 32
+    vocab_size: int = -1  # defined later by tokenizer 7B model: 32000
     multiple_of: int = 256  # make SwiGLU hidden layer size multiple of large power of 2
     norm_eps: float = 1e-5
 
     max_batch_size: int = 32
     max_seq_len: int = 2048
 
-
 class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6):
         super().__init__()
         self.eps = eps
         self.weight = nn.Parameter(torch.ones(dim))
+        print("RMSNorm weight size: {}".format(dim))
 
     def _norm(self, x):
         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
@@ -77,26 +82,46 @@ class Attention(nn.Module):
     def __init__(self, args: ModelArgs):
         super().__init__()
 
-        #self.n_local_heads = args.n_heads // fs_init.get_model_parallel_world_size()  # TODO: this need to be modified for TPU
+        # self.n_local_heads = args.n_heads // fs_init.get_model_parallel_world_size()
         self.n_local_heads = args.n_heads
         self.head_dim = args.dim // args.n_heads
 
-        self.wq = nn.Linear(
+        # self.wq = nn.Linear(
+        #     args.dim,
+        #     args.n_heads * self.head_dim,
+        #     bias=False
+        # )
+        self.wq = LinearQuant(
+            args.dim,
+            args.n_heads * self.head_dim,
+            bias=False
+        )
+        # self.wk = nn.Linear(
+        #     args.dim,
+        #     args.n_heads * self.head_dim,
+        #     bias=False,
+        # )
+        self.wk = LinearQuant(
+            args.dim,
+            args.n_heads * self.head_dim,
+            bias=False
+        )
+        # self.wv = nn.Linear(
+        #     args.dim,
+        #     args.n_heads * self.head_dim,
+        #     bias=False,
+        # )
+        self.wv = LinearQuant(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False,
         )
-        self.wk = nn.Linear(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=False,
-        )
-        self.wv = nn.Linear(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=False,
-        )
-        self.wo = nn.Linear(
+        # self.wo = nn.Linear(
+        #     args.n_heads * self.head_dim,
+        #     args.dim,
+        #     bias=False,
+        # )
+        self.wo = LinearQuant(
             args.n_heads * self.head_dim,
             args.dim,
             bias=False,
@@ -114,6 +139,9 @@ class Attention(nn.Module):
         self.register_buffer("cache_v", torch.zeros(
             (args.max_batch_size, args.max_seq_len, self.n_local_heads, self.head_dim)
         ))
+
+        print("Attention Linear weight size: {} = {} * {}".format(args.dim * args.n_heads * self.head_dim, args.dim, args.n_heads * self.head_dim))
+        print("Attention Cache weight size: {}".format(args.max_batch_size * args.max_seq_len * self.n_local_heads * self.head_dim))
 
     def forward(self, x: torch.Tensor, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor], input_idexes: torch.Tensor):
         bsz, seqlen, _ = x.shape
@@ -173,6 +201,8 @@ class FeedForward(nn.Module):
             dim, hidden_dim, bias=False
         )
 
+        print("Feedforward Linear weight size: {} = {} * {}".format(dim * hidden_dim, dim, hidden_dim))
+
     def forward(self, x):
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
@@ -180,6 +210,7 @@ class FeedForward(nn.Module):
 class TransformerBlock(nn.Module):
     def __init__(self, layer_id: int, args: ModelArgs):
         super().__init__()
+        print("TransformerBlock start")
         self.n_heads = args.n_heads
         self.dim = args.dim
         self.head_dim = args.dim // args.n_heads
@@ -190,6 +221,7 @@ class TransformerBlock(nn.Module):
         self.layer_id = layer_id
         self.attention_norm = RMSNorm(args.dim, eps=args.norm_eps)
         self.ffn_norm = RMSNorm(args.dim, eps=args.norm_eps)
+        print("TransformerBlock end")
 
     def forward(self, x: torch.Tensor, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor], input_idexes: torch.Tensor):
         h = x + self.attention.forward(self.attention_norm(x), freqs_cis, mask, input_idexes)
@@ -209,6 +241,7 @@ class Transformer(nn.Module):
         )
 
         self.layers = torch.nn.ModuleList()
+        params.n_layers = 1
         for layer_id in range(params.n_layers):
             self.layers.append(TransformerBlock(layer_id, params))
 
@@ -216,10 +249,18 @@ class Transformer(nn.Module):
         self.output = nn.Linear(
             params.dim, params.vocab_size, bias=False
         )
+        
+        print("Transformer Embedding size {} = {} * {}".format(params.vocab_size * params.dim, params.vocab_size, params.dim))
+        print("Transformer Linear size {} = {} * {}".format(params.dim * params.vocab_size, params.vocab_size, params.dim))
 
         self.freqs_cis = precompute_freqs_cis(
             self.params.dim // self.params.n_heads, self.params.max_seq_len * 2
         )
+        n_params = 0
+        for param in list(self.parameters()):
+            print(param.nelement())
+            n_params += param.nelement()
+        print(n_params)
 
         mask = torch.full((1, 1, self.params.max_seq_len, self.params.max_seq_len), float("-inf")).to(torch.float)
         mask = torch.triu(mask, diagonal=1)

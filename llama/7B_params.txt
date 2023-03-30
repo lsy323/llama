@@ -1,0 +1,250 @@
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+TransformerBlock start
+Attention Linear weight size: 16777216
+Attention Cache weight size: 268435456
+Feedforward Linear weight size: 45088768
+RMSNorm weight size: 4096
+RMSNorm weight size: 4096
+TransformerBlock end
+RMSNorm weight size: 4096
+Transformer Embedding size 131072000
+Transformer Linear size 131072000
+
+
+32 TransofmerBlock, each block is the same
+TransformerBlock start
+Each TransformerBlock has 1 Attention block, 1 Feedforward block, 2 RMSNorm layers
+
+    Each Attention block has 4 linear layers, sizes of weights of each is the same
+    Attention Linear weight size: 16777216 => 16777216 * 4 Byte = 64 MB
+
+    Each Attention block has 2 cache layers, sizes of weights of each is the same
+    Attention Cache weight size: 268435456 => 268435456 * 4 Byte = 1024 MB
+
+    Each Feedforward has 3 linear layers, sizes of weights of each is the same
+    Feedforward Linear weight size: 45088768 => 45088768 * 4 Byte = 172 MB
+
+    RMSNorm weight size: 4096 => 0.015625 MB
+    RMSNorm weight size: 4096 => 0.015625 MB
+
+TransformerBlock end
+
+Besides the 32 TransformerBlocks, 1 embedding layera and 1 linear layer
+Transformer Embedding size 131072000 => 500 MB
+Transformer Linear size 131072000 => 500 MB
