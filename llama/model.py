@@ -233,7 +233,7 @@ class Transformer(nn.Module):
         )
 
         self.layers = torch.nn.ModuleList()
-        params.n_layers = 1
+        # params.n_layers = 1
         for layer_id in range(params.n_layers):
             self.layers.append(TransformerBlock(layer_id, params))
 
