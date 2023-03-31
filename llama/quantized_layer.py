@@ -1,5 +1,6 @@
 import torch
 import math
+import torch.nn.functional as F
 
 def derive_int8_quant_parameters(w):
     '''
@@ -57,21 +58,26 @@ class LinearQuant(torch.nn.Module):
     '''
     def __init__(self, in_feature, out_feature, bias=False):
         super().__init__()
-        # self.int8_weights = torch.nn.Parameter(torch.zeros((out_feature, in_feature), dtype=torch.int8))
-        self.int8_weights = torch.zeros((out_feature, in_feature), dtype=torch.int8)
-        self.scaler = torch.tensor(0)
+        # Set requires_grad is necessary as tensor with grad doesn't support integer tensors.
+        self.int8_weights = torch.nn.Parameter(torch.randint(-128, 127, (in_feature, out_feature), dtype=torch.int8), requires_grad=False)
+        # self.int8_weights = torch.zeros((in_feature, out_feature), dtype=torch.int8)
+        # self.int8_weights = torch.zeros((out_feature, in_feature), dtype=torch.bfloat16)
+        self.scaler = torch.nn.Parameter(torch.rand(1), requires_grad=False)
         self.bias = bias
         if bias:
-            self.int8_bias = torch.zeros((out_feature), dtype=torch.int8)
-            self.bias_scaler = torch.tensor(0)
+            self.int8_bias = torch.nn.Parameter(torch.rand((out_feature), dtype=torch.int8), requires_grad=False)
+            self.bias_scaler = torch.nn.Parameter(torch.tensor([0.0]), requires_grad=False)
 
     def forward(self, x):
-        fp_weights = dequant_weight(self.int8_weights, self.scaler)
-        activation = torch.matmul(fp_weights, x)
+        # fp_weights = dequant_weight(self.int8_weights, self.scaler)
+        # fp_weights = self.int8_weights.to(x) * self.scaler.to(x)
+        fp_weights = self.int8_weights * self.scaler
+        x = torch.matmul(x, fp_weights)
         if self.bias:
-            fp_bias = dequant_weight(self.int8_bias, self.bias_scaler)
-            activation += fp_bias
-        return activation
+            # fp_bias = dequant_weight(self.int8_bias, self.bias_scaler)
+            fp_bias = self.int8_bias * self.bias_scaler
+            x += fp_bias
+        return x
 
     def load_weights(self, model):
       '''

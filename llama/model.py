@@ -14,14 +14,6 @@ from .quantized_layer import (
     LinearQuant
 )
 
-# import fairscale.nn.model_parallel.initialize as fs_init
-# from fairscale.nn.model_parallel.layers import (
-#     ParallelEmbedding,
-#     RowParallelLinear,
-#     ColumnParallelLinear,
-# )
-
-
 @dataclass
 class ModelArgs:
     dim: int = 512 # 4096
@@ -39,7 +31,7 @@ class RMSNorm(torch.nn.Module):
         super().__init__()
         self.eps = eps
         self.weight = nn.Parameter(torch.ones(dim))
-        print("RMSNorm weight size: {}".format(dim))
+        # print("RMSNorm weight size: {}".format(dim))
 
     def _norm(self, x):
         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
@@ -140,8 +132,8 @@ class Attention(nn.Module):
             (args.max_batch_size, args.max_seq_len, self.n_local_heads, self.head_dim)
         ))
 
-        print("Attention Linear weight size: {} = {} * {}".format(args.dim * args.n_heads * self.head_dim, args.dim, args.n_heads * self.head_dim))
-        print("Attention Cache weight size: {}".format(args.max_batch_size * args.max_seq_len * self.n_local_heads * self.head_dim))
+        # print("Attention Linear weight size: {} = {} * {}".format(args.dim * args.n_heads * self.head_dim, args.dim, args.n_heads * self.head_dim))
+        # print("Attention Cache weight size: {}".format(args.max_batch_size * args.max_seq_len * self.n_local_heads * self.head_dim))
 
     def forward(self, x: torch.Tensor, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor], input_idexes: torch.Tensor):
         bsz, seqlen, _ = x.shape
@@ -201,7 +193,7 @@ class FeedForward(nn.Module):
             dim, hidden_dim, bias=False
         )
 
-        print("Feedforward Linear weight size: {} = {} * {}".format(dim * hidden_dim, dim, hidden_dim))
+        # print("Feedforward Linear weight size: {} = {} * {}".format(dim * hidden_dim, dim, hidden_dim))
 
     def forward(self, x):
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
@@ -210,7 +202,7 @@ class FeedForward(nn.Module):
 class TransformerBlock(nn.Module):
     def __init__(self, layer_id: int, args: ModelArgs):
         super().__init__()
-        print("TransformerBlock start")
+        # print("TransformerBlock start")
         self.n_heads = args.n_heads
         self.dim = args.dim
         self.head_dim = args.dim // args.n_heads
@@ -221,7 +213,7 @@ class TransformerBlock(nn.Module):
         self.layer_id = layer_id
         self.attention_norm = RMSNorm(args.dim, eps=args.norm_eps)
         self.ffn_norm = RMSNorm(args.dim, eps=args.norm_eps)
-        print("TransformerBlock end")
+        # print("TransformerBlock end")
 
     def forward(self, x: torch.Tensor, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor], input_idexes: torch.Tensor):
         h = x + self.attention.forward(self.attention_norm(x), freqs_cis, mask, input_idexes)
@@ -250,17 +242,17 @@ class Transformer(nn.Module):
             params.dim, params.vocab_size, bias=False
         )
         
-        print("Transformer Embedding size {} = {} * {}".format(params.vocab_size * params.dim, params.vocab_size, params.dim))
-        print("Transformer Linear size {} = {} * {}".format(params.dim * params.vocab_size, params.vocab_size, params.dim))
+        # print("Transformer Embedding size {} = {} * {}".format(params.vocab_size * params.dim, params.vocab_size, params.dim))
+        # print("Transformer Linear size {} = {} * {}".format(params.dim * params.vocab_size, params.vocab_size, params.dim))
 
         self.freqs_cis = precompute_freqs_cis(
             self.params.dim // self.params.n_heads, self.params.max_seq_len * 2
         )
-        n_params = 0
-        for param in list(self.parameters()):
-            print(param.nelement())
-            n_params += param.nelement()
-        print(n_params)
+        # n_params = 0
+        # for param in list(self.parameters()):
+        #     print(param.nelement())
+        #     n_params += param.nelement()
+        # print(n_params)
 
         mask = torch.full((1, 1, self.params.max_seq_len, self.params.max_seq_len), float("-inf")).to(torch.float)
         mask = torch.triu(mask, diagonal=1)
