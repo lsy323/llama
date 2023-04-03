@@ -78,46 +78,46 @@ class Attention(nn.Module):
         self.n_local_heads = args.n_heads
         self.head_dim = args.dim // args.n_heads
 
-        self.wq = nn.Linear(
+        # self.wq = nn.Linear(
+        #     args.dim,
+        #     args.n_heads * self.head_dim,
+        #     bias=False
+        # )
+        self.wq = LinearQuant(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False
         )
-        # self.wq = LinearQuant(
-        #     args.dim,
-        #     args.n_heads * self.head_dim,
-        #     bias=False
-        # )
-        self.wk = nn.Linear(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=False,
-        )
-        # self.wk = LinearQuant(
-        #     args.dim,
-        #     args.n_heads * self.head_dim,
-        #     bias=False
-        # )
-        self.wv = nn.Linear(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=False,
-        )
-        # self.wv = LinearQuant(
+        # self.wk = nn.Linear(
         #     args.dim,
         #     args.n_heads * self.head_dim,
         #     bias=False,
         # )
-        self.wo = nn.Linear(
-            args.n_heads * self.head_dim,
+        self.wk = LinearQuant(
             args.dim,
+            args.n_heads * self.head_dim,
+            bias=False
+        )
+        # self.wv = nn.Linear(
+        #     args.dim,
+        #     args.n_heads * self.head_dim,
+        #     bias=False,
+        # )
+        self.wv = LinearQuant(
+            args.dim,
+            args.n_heads * self.head_dim,
             bias=False,
         )
-        # self.wo = LinearQuant(
+        # self.wo = nn.Linear(
         #     args.n_heads * self.head_dim,
         #     args.dim,
         #     bias=False,
         # )
+        self.wo = LinearQuant(
+            args.n_heads * self.head_dim,
+            args.dim,
+            bias=False,
+        )
 
         # self.cache_k = torch.zeros(
         #     (args.max_batch_size, args.max_seq_len, self.n_local_heads, self.head_dim)

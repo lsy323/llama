@@ -14,7 +14,7 @@ import json
 
 from pathlib import Path
 
-from llama import ModelArgs, Transformer, Tokenizer, LLaMA
+from llama import ModelArgs, Transformer, Tokenizer, LLaMA, LinearQuant
 
 from functools import partial
 from torch_xla.distributed.fsdp import (
@@ -38,7 +38,8 @@ def init(
     # FSDP init
     auto_wrap_policy = partial(
           transformer_auto_wrap_policy,
-          transformer_layer_cls={torch.nn.Linear})
+        #   transformer_layer_cls={torch.nn.Linear})
+        transformer_layer_cls={LinearQuant})
     auto_wrapper_callable = None
     fsdp_wrap = lambda m: FSDP(
       m,
