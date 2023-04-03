@@ -250,7 +250,7 @@ class Transformer(nn.Module):
         )
         # n_params = 0
         # for param in list(self.parameters()):
-        #     print(param.nelement())
+        #     print(f"{param.nelement()} : {param.element_size()}")
         #     n_params += param.nelement()
         # print(n_params)
 

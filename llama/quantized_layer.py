@@ -71,7 +71,10 @@ class LinearQuant(torch.nn.Module):
     def forward(self, x):
         # fp_weights = dequant_weight(self.int8_weights, self.scaler)
         # fp_weights = self.int8_weights.to(x) * self.scaler.to(x)
+        # print(self.int8_weights.dtype)
+        # print(self.scaler.dtype)
         fp_weights = self.int8_weights * self.scaler
+        # print(fp_weights.dtype)
         x = torch.matmul(x, fp_weights)
         if self.bias:
             # fp_bias = dequant_weight(self.int8_bias, self.bias_scaler)
