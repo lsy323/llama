@@ -16,6 +16,15 @@ from pathlib import Path
 
 from llama import ModelArgs, Transformer, Tokenizer, LLaMA
 
+from functools import partial
+from torch_xla.distributed.fsdp import (
+    XlaFullyShardedDataParallel as FSDP,
+    consolidate_sharded_model_checkpoints,
+    checkpoint_module,
+)
+from torch_xla.distributed.fsdp.wrap import (size_based_auto_wrap_policy,
+                                             transformer_auto_wrap_policy)
+
 
 def init(
     tokenizer_path: str,
@@ -26,6 +35,20 @@ def init(
     n_heads: int = 32,
 ) -> LLaMA:
     start_time = time.time()
+    # FSDP init
+    auto_wrap_policy = partial(
+          transformer_auto_wrap_policy,
+          transformer_layer_cls={torch.nn.Linear})
+    auto_wrapper_callable = None
+    fsdp_wrap = lambda m: FSDP(
+      m,
+      compute_dtype=torch.bfloat16,
+      fp32_reduce_scatter=False,
+      flatten_parameters=False,
+      shard_param_on_dim_0=False,
+      pin_layout_in_collective_ops=True,
+      auto_wrap_policy=auto_wrap_policy,
+      auto_wrapper_callable=auto_wrapper_callable)
     # checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
     # TODO the checkpoint for large models seems to be sharded as well
     # assert world_size == len(
@@ -47,7 +70,9 @@ def init(
     model_args.vocab_size = tokenizer.n_words
     # torch.set_default_tensor_type(torch.cuda.HalfTensor)  # TODO: this line puts the model to cuda device
     torch.set_default_tensor_type(torch.BFloat16Tensor)
+    # torch.set_default_tensor_type(torch.FloatTensor)
     model = Transformer(model_args)
+    model = fsdp_wrap(model)
     device = xm.xla_device()
     model = model.to(device)
     torch.set_default_tensor_type(torch.FloatTensor)
