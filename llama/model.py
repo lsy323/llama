@@ -25,6 +25,7 @@ class ModelArgs:
 
     max_batch_size: int = 32
     max_seq_len: int = 2048
+    use_quantized: bool = False
 
 class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6):
@@ -78,46 +79,57 @@ class Attention(nn.Module):
         self.n_local_heads = args.n_heads
         self.head_dim = args.dim // args.n_heads
 
-        # self.wq = nn.Linear(
-        #     args.dim,
-        #     args.n_heads * self.head_dim,
-        #     bias=False
-        # )
-        self.wq = LinearQuant(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=False
-        )
-        # self.wk = nn.Linear(
-        #     args.dim,
-        #     args.n_heads * self.head_dim,
-        #     bias=False,
-        # )
-        self.wk = LinearQuant(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=False
-        )
-        # self.wv = nn.Linear(
-        #     args.dim,
-        #     args.n_heads * self.head_dim,
-        #     bias=False,
-        # )
-        self.wv = LinearQuant(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=False,
-        )
-        # self.wo = nn.Linear(
-        #     args.n_heads * self.head_dim,
-        #     args.dim,
-        #     bias=False,
-        # )
-        self.wo = LinearQuant(
-            args.n_heads * self.head_dim,
-            args.dim,
-            bias=False,
-        )
+        if args.use_quantized:
+            self.wq = LinearQuant(
+                args.dim,
+                args.n_heads * self.head_dim,
+                bias=False
+            )
+        else:
+            self.wq = nn.Linear(
+                args.dim,
+                args.n_heads * self.head_dim,
+                bias=False
+            )
+
+        if args.use_quantized:
+            self.wk = LinearQuant(
+                args.dim,
+                args.n_heads * self.head_dim,
+                bias=False
+            )
+        else:
+            self.wk = nn.Linear(
+                args.dim,
+                args.n_heads * self.head_dim,
+                bias=False,
+            )
+
+        if args.use_quantized:
+            self.wv = LinearQuant(
+                args.dim,
+                args.n_heads * self.head_dim,
+                bias=False,
+            )
+        else:
+            self.wv = nn.Linear(
+                args.dim,
+                args.n_heads * self.head_dim,
+                bias=False,
+            )
+
+        if args.use_quantized:
+            self.wo = LinearQuant(
+                args.n_heads * self.head_dim,
+                args.dim,
+                bias=False,
+            )
+        else:
+            self.wo = nn.Linear(
+                args.n_heads * self.head_dim,
+                args.dim,
+                bias=False,
+            )
 
         # self.cache_k = torch.zeros(
         #     (args.max_batch_size, args.max_seq_len, self.n_local_heads, self.head_dim)
@@ -178,20 +190,41 @@ class FeedForward(nn.Module):
         dim: int,
         hidden_dim: int,
         multiple_of: int,
+        use_quantized: bool,
     ):
         super().__init__()
         hidden_dim = int(2 * hidden_dim / 3)
         hidden_dim = multiple_of * ((hidden_dim + multiple_of - 1) // multiple_of)
 
-        self.w1 = nn.Linear(
-            dim, hidden_dim, bias=False
-        )
-        self.w2 = nn.Linear(
-            hidden_dim, dim, bias=False
-        )
-        self.w3 = nn.Linear(
-            dim, hidden_dim, bias=False
-        )
+        # if use_quantized:
+        if False:
+            self.w1 = LinearQuant(
+                dim, hidden_dim, bias=False
+            )
+        else:
+            self.w1 = nn.Linear(
+                dim, hidden_dim, bias=False
+            )
+        
+        # if use_quantized:
+        if False:
+            self.w2 = LinearQuant(
+                hidden_dim, dim, bias=False
+            )
+        else:
+            self.w2 = nn.Linear(
+                hidden_dim, dim, bias=False
+            )
+
+        # if use_quantized:
+        if False:
+            self.w3 = LinearQuant(
+                dim, hidden_dim, bias=False
+            )
+        else:
+            self.w3 = nn.Linear(
+                dim, hidden_dim, bias=False
+            )
 
         # print("Feedforward Linear weight size: {} = {} * {}".format(dim * hidden_dim, dim, hidden_dim))
 
@@ -208,7 +241,7 @@ class TransformerBlock(nn.Module):
         self.head_dim = args.dim // args.n_heads
         self.attention = Attention(args)
         self.feed_forward = FeedForward(
-            dim=args.dim, hidden_dim=4 * args.dim, multiple_of=args.multiple_of
+            dim=args.dim, hidden_dim=4 * args.dim, multiple_of=args.multiple_of, use_quantized=args.use_quantized
         )
         self.layer_id = layer_id
         self.attention_norm = RMSNorm(args.dim, eps=args.norm_eps)
@@ -233,14 +266,19 @@ class Transformer(nn.Module):
         )
 
         self.layers = torch.nn.ModuleList()
-        # params.n_layers = 1
         for layer_id in range(params.n_layers):
             self.layers.append(TransformerBlock(layer_id, params))
 
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
-        self.output = nn.Linear(
-            params.dim, params.vocab_size, bias=False
-        )
+        # if params.use_quantized:
+        if False:
+            self.output = LinearQuant(
+                params.dim, params.vocab_size, bias=False
+            )
+        else:
+            self.output = nn.Linear(
+                params.dim, params.vocab_size, bias=False
+            )
         
         # print("Transformer Embedding size {} = {} * {}".format(params.vocab_size * params.dim, params.vocab_size, params.dim))
         # print("Transformer Linear size {} = {} * {}".format(params.dim * params.vocab_size, params.vocab_size, params.dim))
