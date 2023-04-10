@@ -9,14 +9,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-import fairscale.nn.model_parallel.initialize as fs_init
-from fairscale.nn.model_parallel.layers import (
-    ParallelEmbedding,  # TODO: change these classes to the regular versions
-    RowParallelLinear,
-    ColumnParallelLinear,
-)
-
-
 @dataclass
 class ModelArgs:
     dim: int = 4096
@@ -28,7 +20,6 @@ class ModelArgs:
 
     max_batch_size: int = 32
     max_seq_len: int = 2048
-
 
 class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6):

@@ -26,6 +26,7 @@ class Tokenizer:
             f"#words: {self.n_words} - BOS ID: {self.bos_id} - EOS ID: {self.eos_id}"
         )
         assert self.sp_model.vocab_size() == self.sp_model.get_piece_size()
+        print("#words: {} - BOS ID: {} - EOS ID: {}".format(self.n_words, self.bos_id, self.eos_id))
 
     def encode(self, s: str, bos: bool, eos: bool) -> List[int]:
         assert type(s) is str

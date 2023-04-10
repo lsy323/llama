@@ -10,11 +10,16 @@ import time
 import torch_xla.core.xla_model as xm
 import torch_xla.debug.metrics as met
 import torch_xla.debug.profiler as xp
+import torch_xla.distributed.xla_multiprocessing as xmp
 import json
 
 from pathlib import Path
 
-from llama import ModelArgs, Transformer, Tokenizer, LLaMA
+from llama import ModelArgs, Transformer, Tokenizer, LLaMA, TransformerBlock
+
+from functools import partial
+from torch_xla.distributed.fsdp import XlaFullyShardedDataParallel as FSDP
+from torch_xla.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 
 def init(
@@ -24,18 +29,25 @@ def init(
     dim: int = 4096,
     n_layers: int = 32,
     n_heads: int = 32,
+    use_fsdp: bool = False,
 ) -> LLaMA:
     start_time = time.time()
-    # checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
-    # TODO the checkpoint for large models seems to be sharded as well
-    # assert world_size == len(
-    #     checkpoints
-    # ), f"Loading a checkpoint for MP={len(checkpoints)} but world size is {world_size}"
-    # ckpt_path = checkpoints[rank]
+    # FSDP init
+    auto_wrap_policy = partial(
+        transformer_auto_wrap_policy,
+        # transformer_layer_cls={torch.nn.Linear})
+        transformer_layer_cls={TransformerBlock})
+    auto_wrapper_callable = None
+    fsdp_wrap = lambda m: FSDP(
+      m,
+    #   compute_dtype=torch.bfloat16,
+      fp32_reduce_scatter=False,
+      flatten_parameters=False,
+      shard_param_on_dim_0=False,
+      pin_layout_in_collective_ops=True,
+      auto_wrap_policy=auto_wrap_policy,
+      auto_wrapper_callable=auto_wrapper_callable)
     print("Loading")
-    # checkpoint = torch.load(ckpt_path, map_location="cpu")
-    # with open(Path(ckpt_dir) / "params.json", "r") as f:
-    #     params = json.loads(f.read())
     params = {"dim": dim,
               "n_layers": n_layers,
               "n_heads": n_heads,
@@ -48,6 +60,9 @@ def init(
     # torch.set_default_tensor_type(torch.cuda.HalfTensor)  # TODO: this line puts the model to cuda device
     torch.set_default_tensor_type(torch.BFloat16Tensor)
     model = Transformer(model_args)
+    if use_fsdp:
+        print("wrapping FSDP")
+        model = fsdp_wrap(model)
     device = xm.xla_device()
     model = model.to(device)
     torch.set_default_tensor_type(torch.FloatTensor)
@@ -67,11 +82,12 @@ def main(
     dim: int = 4096,
     n_layers: int = 32,
     n_heads: int = 32,
+    use_fsdp: bool = False,
 ):
     server = xp.start_server(9012, only_on_master=False)
     torch.manual_seed(1)
     generator = init(
-        tokenizer_path, max_seq_len, max_batch_size, dim, n_layers, n_heads
+        tokenizer_path, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp
     )
 
     prompts = [
@@ -101,25 +117,49 @@ def main(
 #
 #cheese =>""",
     ]
-    with torch.no_grad():
-        results = generator.generate(
-            prompts, max_gen_len=256, temperature=temperature, top_p=top_p
-        )
+    for _ in range(1):
+        with torch.no_grad():
+            f = open(os.devnull, 'w')
+            sys.stdout = f
+            results = generator.generate(
+                prompts, max_gen_len=256, temperature=temperature, top_p=top_p
+            )
+            sys.stdout = sys.__stdout__
+            for result in results:
+                xm.master_print(result)
+                print("\n==================================\n")
 
-    for result in results:
-        print(result)
-        print("\n==================================\n")
+def _fn(
+    idx,
+    tokenizer_path: str,
+    temperature: float = 0.8,
+    top_p: float = 0.95,
+    max_seq_len: int = 512,
+    max_batch_size: int = 32,
+    dim: int = 4096,
+    n_layers: int = 32,
+    n_heads: int = 32,
+    use_fsdp: bool = False,
+):
+    main(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp)
 
-    with torch.no_grad():
-        results = generator.generate(
-            prompts, max_gen_len=256, temperature=temperature, top_p=top_p
-        )
-
-    for result in results:
-        print(result)
-        print("\n==================================\n")
-
+def mp_main(
+    tokenizer_path: str,
+    temperature: float = 0.8,
+    top_p: float = 0.95,
+    max_seq_len: int = 512,
+    max_batch_size: int = 32,
+    dim: int = 4096,
+    n_layers: int = 32,
+    n_heads: int = 32,
+    mp: bool = False,
+    use_fsdp: bool = False,
+):
+    print(f"Use mp: {mp}, Use fsdp {use_fsdp}")
+    if mp:
+        xmp.spawn(_fn, args=(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp))
+    else:
+        main(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp)
 
 if __name__ == "__main__":
-    fire.Fire(main)
-    # print(met.metrics_report())
+    fire.Fire(mp_main)
