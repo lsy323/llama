@@ -15,7 +15,7 @@ import json
 
 from pathlib import Path
 
-from llama import ModelArgs, Transformer, Tokenizer, LLaMA, LinearQuant
+from llama import ModelArgs, Transformer, Tokenizer, LLaMA, LinearQuant, TransformerBlock, Attention, FeedForward
 
 from functools import partial
 from torch_xla.distributed.fsdp import (
@@ -43,21 +43,20 @@ def init(
     if not use_quantized:
         auto_wrap_policy = partial(
             transformer_auto_wrap_policy,
-            transformer_layer_cls={torch.nn.Linear})
+            transformer_layer_cls={torch.nn.Linear}) # wrap tranformer block
     else:
         auto_wrap_policy = partial(
             transformer_auto_wrap_policy,
-            transformer_layer_cls={LinearQuant})
-    auto_wrapper_callable = None
+            transformer_layer_cls={torch.nn.Linear, LinearQuant})
     fsdp_wrap = lambda m: FSDP(
       m,
       compute_dtype=torch.bfloat16,
       fp32_reduce_scatter=False,
       flatten_parameters=False,
-      shard_param_on_dim_0=False,
-      pin_layout_in_collective_ops=True,
+      shard_param_on_dim_0=True,
+      pin_layout_in_collective_ops=False,
       auto_wrap_policy=auto_wrap_policy,
-      auto_wrapper_callable=auto_wrapper_callable)
+      quantized_weight=use_quantized)
     # checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
     # TODO the checkpoint for large models seems to be sharded as well
     # assert world_size == len(
@@ -80,14 +79,15 @@ def init(
     model_args.vocab_size = tokenizer.n_words
     # torch.set_default_tensor_type(torch.cuda.HalfTensor)  # TODO: this line puts the model to cuda device
     torch.set_default_tensor_type(torch.BFloat16Tensor)
-    # torch.set_default_tensor_type(torch.FloatTensor)
     model = Transformer(model_args)
+    # torch.save(model.state_dict(), "./tranformer.pth")
+    # model.load_state_dict(torch.load("./tranformer.pth"))
     if use_fsdp:
-        print("wrapping FSDP")
         model = fsdp_wrap(model)
-    device = xm.xla_device()
-    model = model.to(device)
-    torch.set_default_tensor_type(torch.FloatTensor)
+    else:
+        device = xm.xla_device()
+        model = model.to(device)
+    # torch.set_default_tensor_type(torch.FloatTensor)
     # model.load_state_dict(checkpoint, strict=False)
 
     generator = LLaMA(model, tokenizer)
@@ -108,15 +108,15 @@ def main(
     use_quantized: bool = False
 ):
     server = xp.start_server(9012, only_on_master=False)
-    # torch.manual_seed(1)
+    torch.manual_seed(1)
     generator = init(
         tokenizer_path, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp, use_quantized
     )
 
     prompts = [
         # For these prompts, the expected answer is the natural continuation of the prompt
-        "I believe the meaning of life is",
-        "Simply put, the theory of relativity states that ",
+        # "I believe the meaning of life is",
+        # "Simply put, the theory of relativity states that ",
         "Building a website can be done in 10 simple steps:\n",
         # Few shot prompts: https://huggingface.co/blog/few-shot-learning-gpt-neo-and-inference-api
 #        """Tweet: "I hate it when my phone battery dies."
@@ -140,25 +140,19 @@ def main(
 #
 #cheese =>""",
     ]
-    # warm up
-    with torch.no_grad():
-        results = generator.generate(
-            prompts, max_gen_len=256, temperature=temperature, top_p=top_p
-        )
-
-    for result in results:
-        print(result)
-        print("\n==================================\n")
-
-    for _ in range(3):
+    for _ in range(1):
         with torch.no_grad():
+            f = open(os.devnull, 'w')
+            sys.stdout = f
             results = generator.generate(
                 prompts, max_gen_len=256, temperature=temperature, top_p=top_p
             )
-
-        for result in results:
-            print(result)
-            print("\n==================================\n")
+            sys.stdout = sys.__stdout__
+            for result in results:
+                # print(result)
+                if xm.is_master_ordinal():
+                    print(result)
+                    print("\n==================================\n")
 
 def _fn(
     idx,

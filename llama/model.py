@@ -206,8 +206,8 @@ class FeedForward(nn.Module):
                 dim, hidden_dim, bias=False
             )
         
-        # if use_quantized:
-        if False:
+        if use_quantized:
+        # if False:
             self.w2 = LinearQuant(
                 hidden_dim, dim, bias=False
             )
@@ -216,8 +216,8 @@ class FeedForward(nn.Module):
                 hidden_dim, dim, bias=False
             )
 
-        # if use_quantized:
-        if False:
+        if use_quantized:
+        # if False:
             self.w3 = LinearQuant(
                 dim, hidden_dim, bias=False
             )
@@ -270,8 +270,8 @@ class Transformer(nn.Module):
             self.layers.append(TransformerBlock(layer_id, params))
 
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
-        # if params.use_quantized:
-        if False:
+        if params.use_quantized:
+        # if False:
             self.output = LinearQuant(
                 params.dim, params.vocab_size, bias=False
             )

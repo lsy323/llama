@@ -39,7 +39,7 @@ def quant_weight(w):
     quantized_tensor.detach().apply_(lambda x: round(x / scaler))
     torch.clamp(quantized_tensor, container_min, container_max)
     quantized_tensor = quantized_tensor.to(torch.int8)
-    return quantized_tensor, scaler
+    return quantized_tensor, torch.Tensor([scaler])
 
 def dequant_weight(w, scaler):
     '''
@@ -59,33 +59,39 @@ class LinearQuant(torch.nn.Module):
     def __init__(self, in_feature, out_feature, bias=False):
         super().__init__()
         # Set requires_grad is necessary as tensor with grad doesn't support integer tensors.
-        self.int8_weights = torch.nn.Parameter(torch.randint(-128, 127, (in_feature, out_feature), dtype=torch.int8), requires_grad=False)
+        self.int8_weights = torch.nn.Parameter(torch.randint(-128, 127, (out_feature, in_feature), dtype=torch.int8), requires_grad=False)
+        # self.int8_weights = torch.nn.Parameter(torch.empty(out_feature, in_feature), requires_grad=False)
         # self.int8_weights = torch.zeros((in_feature, out_feature), dtype=torch.int8)
         # self.int8_weights = torch.zeros((out_feature, in_feature), dtype=torch.bfloat16)
-        self.scaler = torch.nn.Parameter(torch.rand(1), requires_grad=False)
-        self.bias = bias
-        if bias:
-            self.int8_bias = torch.nn.Parameter(torch.rand((out_feature), dtype=torch.int8), requires_grad=False)
-            self.bias_scaler = torch.nn.Parameter(torch.tensor([0.0]), requires_grad=False)
+        # self.scaler = torch.nn.Parameter(torch.rand(1) / 255, requires_grad=False)
+        self.scaler = torch.tensor(1.0 / 128 / math.sqrt(in_feature))
+        # self.scaler = torch.tensor(1.0)
+        
+        # torch.nn.init.kaiming_uniform_(self.int8_weights, a=math.sqrt(5))
+        # # # Default linear layer init:
+        # # # https://github.com/pytorch/pytorch/blob/387feaa1312995e33f987175bc27790742272bd4/torch/nn/modules/linear.py#L107
+        dummy_fp_weight = torch.empty(out_feature, in_feature)
+        torch.nn.init.kaiming_uniform_(dummy_fp_weight, a=math.sqrt(5))
+        dummy_fp_weight *= 128 * math.sqrt(in_feature)
+        dummy_fp_weight = torch.clamp(dummy_fp_weight, -128, 127)
+        self.int8_weights.data = dummy_fp_weight.to(torch.int8)
+        # self.load_weights(dummy_fp_weight)
 
+    @torch.no_grad()
     def forward(self, x):
-        # fp_weights = dequant_weight(self.int8_weights, self.scaler)
-        # fp_weights = self.int8_weights.to(x) * self.scaler.to(x)
-        # print(self.int8_weights.dtype)
-        # print(self.scaler.dtype)
         fp_weights = self.int8_weights * self.scaler
-        # print(fp_weights.dtype)
-        x = torch.matmul(x, fp_weights)
-        if self.bias:
-            # fp_bias = dequant_weight(self.int8_bias, self.bias_scaler)
-            fp_bias = self.int8_bias * self.bias_scaler
-            x += fp_bias
+        # x = torch.matmul(x, torch.transpose(fp_weights, 0, 1))
+        x = F.linear(x, fp_weights)
+        # print(x)
+        # x = F.linear(x, self.int8_weights)
+        # print(x)
         return x
 
-    def load_weights(self, model):
+    def load_weights(self, weight):
       '''
-      Load weights from a floating point model.
+      Load weights from torch.nn.Linear.
       '''
       # Only load weights for 1 layer now for simplicity.
-      self.int8_weights, self.scaler = quant_weight(model.linear.weight)
-      dequantized_weight = dequant_weight(self.int8_weights, self.scaler)
+      int8_w, scaler = quant_weight(weight)
+      self.int8_weights.copy_(int8_w)
+      self.scaler.copy_(scaler)
