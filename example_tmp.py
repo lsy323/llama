@@ -48,7 +48,8 @@ def init(
       flatten_parameters=False,
       shard_param_on_dim_0=False,
       pin_layout_in_collective_ops=True,
-      auto_wrap_policy=auto_wrap_policy,)
+      auto_wrap_policy=auto_wrap_policy,
+      quantized_weight=use_quantized)
     print("Loading")
     # checkpoint = torch.load(ckpt_path, map_location="cpu")
     # with open(Path(ckpt_dir) / "params.json", "r") as f:
