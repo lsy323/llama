@@ -142,12 +142,12 @@ def main(
     ]
     for _ in range(1):
         with torch.no_grad():
-            f = open(os.devnull, 'w')
-            sys.stdout = f
+            # f = open(os.devnull, 'w')
+            # sys.stdout = f
             results = generator.generate(
                 prompts, max_gen_len=256, temperature=temperature, top_p=top_p
             )
-            sys.stdout = sys.__stdout__
+            # sys.stdout = sys.__stdout__
             for result in results:
                 # print(result)
                 if xm.is_master_ordinal():

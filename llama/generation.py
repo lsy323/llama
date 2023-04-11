@@ -79,14 +79,12 @@ class LLaMA:
         print(f"Input prepared in {time.time() - input_prepare_start_time:.2f} seconds")
         decoding_start_time = time.time()
         for idx in range(start_pos, total_len):
-            # if idx == 8:
-            #     exit(0)
             token_start_time = time.time()
             # with xp.Trace('trace_generate_one_token'):
             tokens, cur_pos_tensor, input_pos_tensor, logits = self._generate_one_token_fn(tokens, input_text_mask, cur_pos_tensor, input_pos_tensor, temperature, top_p)
             xm.mark_step()
             # xm.master_print(logits)
-            # print(f"Generated 1 token in {time.time() - token_start_time:.2f} seconds")
+            print(f"Generated 1 token in {time.time() - token_start_time:.2f} seconds")
         print(f"{total_len - start_pos} tokens Decoded in {time.time() - decoding_start_time:.2f} seconds")
         # torch.set_printoptions(profile="full")
         # print(tokens)
