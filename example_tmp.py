@@ -15,7 +15,7 @@ import json
 
 from pathlib import Path
 
-from llama import ModelArgs, Transformer, Tokenizer, LLaMA
+from llama import ModelArgs, Transformer, Tokenizer, LLaMA, LinearQuant
 
 from functools import partial
 from torch_xla.distributed.fsdp import XlaFullyShardedDataParallel as FSDP
@@ -29,13 +29,18 @@ def init(
     n_layers: int = 32,
     n_heads: int = 32,
     use_fsdp: bool = False,
+    use_quantized: bool = False,
 ) -> LLaMA:
     start_time = time.time()
     # FSDP init
-    auto_wrap_policy = partial(
-        transformer_auto_wrap_policy,
-        # transformer_layer_cls={torch.nn.Linear})
-        transformer_layer_cls={torch.nn.Linear})
+    if not use_quantized:
+        auto_wrap_policy = partial(
+            transformer_auto_wrap_policy,
+            transformer_layer_cls={torch.nn.Linear}) # wrap tranformer block
+    else:
+        auto_wrap_policy = partial(
+            transformer_auto_wrap_policy,
+            transformer_layer_cls={torch.nn.Linear, LinearQuant})
     fsdp_wrap = lambda m: FSDP(
       m,
       compute_dtype=torch.bfloat16,
@@ -51,6 +56,7 @@ def init(
     params = {"dim": dim,
               "n_layers": n_layers,
               "n_heads": n_heads,
+              "use_quantized": use_quantized,
               }
     model_args: ModelArgs = ModelArgs(
         max_seq_len=max_seq_len, max_batch_size=max_batch_size, **params
@@ -85,11 +91,12 @@ def main(
     n_layers: int = 32,
     n_heads: int = 32,
     use_fsdp: bool = False,
+    use_quantized: bool = False,
 ):
     server = xp.start_server(9012, only_on_master=False)
     torch.manual_seed(1)
     generator = init(
-        tokenizer_path, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp
+        tokenizer_path, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp, use_quantized
     )
 
     prompts = [
@@ -119,15 +126,15 @@ def main(
 #
 #cheese =>""",
     ]
-    # for _ in range(1):
-    with torch.no_grad():
-        results = generator.generate(
-            prompts, max_gen_len=256, temperature=temperature, top_p=top_p
-        )
+    for _ in range(2):
+        with torch.no_grad():
+            results = generator.generate(
+                prompts, max_gen_len=256, temperature=temperature, top_p=top_p
+            )
 
-    for result in results:
-        print(result)
-        print("\n==================================\n")
+        for result in results:
+            print(result)
+            print("\n==================================\n")
 
 def _fn(
     idx,
@@ -140,8 +147,9 @@ def _fn(
     n_layers: int = 32,
     n_heads: int = 32,
     use_fsdp: bool = False,
+    use_quantized: bool = False,
 ):
-    main(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp)
+    main(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp, use_quantized)
 
 def mp_main(
     tokenizer_path: str,
@@ -154,12 +162,13 @@ def mp_main(
     n_heads: int = 32,
     mp: bool = False,
     use_fsdp: bool = False,
+    use_quantized: bool = False,
 ):
-    print(f"Use mp: {mp}, Use fsdp {use_fsdp}")
+    print(f"Use mp: {mp}, Use fsdp {use_fsdp}, Use quantized: {use_quantized}")
     if mp:
-        xmp.spawn(_fn, args=(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp))
+        xmp.spawn(_fn, args=(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp, use_quantized))
     else:
-        main(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp)
+        main(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads, use_fsdp, use_quantized)
 
 if __name__ == "__main__":
     # fire.Fire(main)
