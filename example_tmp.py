@@ -27,6 +27,14 @@ from torch_xla.distributed.fsdp.wrap import (size_based_auto_wrap_policy,
                                              transformer_auto_wrap_policy)
 
 
+from torchdistx import deferred_init
+
+def _init_with_torchdistX(module):
+    def check_fn(k):
+        return not isinstance(k, FSDP)
+
+    deferred_init.materialize_module(module, check_fn=check_fn)
+
 def init(
     tokenizer_path: str,
     max_seq_len: int,
@@ -56,6 +64,7 @@ def init(
       shard_param_on_dim_0=True,
       pin_layout_in_collective_ops=False,
       auto_wrap_policy=auto_wrap_policy,
+      param_init_fn=_init_with_torchdistX,
       quantized_weight=use_quantized)
     # checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
     # TODO the checkpoint for large models seems to be sharded as well
