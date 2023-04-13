@@ -56,15 +56,16 @@ class LinearQuant(torch.nn.Module):
     '''
     Int8 weight-only quantized linaer
     '''
-    def __init__(self, in_feature, out_feature, bias=False):
+    def __init__(self, in_feature, out_feature, bias=False, device=None):
         super().__init__()
+        print("in quant linear init")
         # Set requires_grad is necessary as tensor with grad doesn't support integer tensors.
-        self.int8_weights = torch.nn.Parameter(torch.randint(-128, 127, (out_feature, in_feature), dtype=torch.int8), requires_grad=False)
+        self.int8_weights = torch.nn.Parameter(torch.randint(-128, 127, (out_feature, in_feature), dtype=torch.int8, device=device), requires_grad=False)
         # self.int8_weights = torch.nn.Parameter(torch.empty(out_feature, in_feature), requires_grad=False)
         # self.int8_weights = torch.zeros((in_feature, out_feature), dtype=torch.int8)
         # self.int8_weights = torch.zeros((out_feature, in_feature), dtype=torch.bfloat16)
         # self.scaler = torch.nn.Parameter(torch.rand(1) / 255, requires_grad=False)
-        self.scaler = torch.tensor(1.0 / 128 / math.sqrt(in_feature))
+        self.scaler = torch.tensor(1.0 / 128 / math.sqrt(in_feature), device=device)
         # self.scaler = torch.tensor(1.0)
         
         # torch.nn.init.kaiming_uniform_(self.int8_weights, a=math.sqrt(5))

@@ -56,26 +56,17 @@ def init(
         auto_wrap_policy = partial(
             transformer_auto_wrap_policy,
             transformer_layer_cls={torch.nn.Linear, LinearQuant})
-    fsdp_wrap = lambda m: FSDP(
-      m,
-      compute_dtype=torch.bfloat16,
-      fp32_reduce_scatter=False,
-      flatten_parameters=False,
-      shard_param_on_dim_0=True,
-      pin_layout_in_collective_ops=False,
-      auto_wrap_policy=auto_wrap_policy,
-      param_init_fn=_init_with_torchdistX,
-      quantized_weight=use_quantized)
-    # checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
-    # TODO the checkpoint for large models seems to be sharded as well
-    # assert world_size == len(
-    #     checkpoints
-    # ), f"Loading a checkpoint for MP={len(checkpoints)} but world size is {world_size}"
-    # ckpt_path = checkpoints[rank]
+    # fsdp_wrap = lambda m: FSDP(
+    #   m,
+    #   compute_dtype=torch.bfloat16,
+    #   fp32_reduce_scatter=False,
+    #   flatten_parameters=False,
+    #   shard_param_on_dim_0=True,
+    #   pin_layout_in_collective_ops=False,
+    #   auto_wrap_policy=auto_wrap_policy,
+    #   param_init_fn=_init_with_torchdistX,
+    #   quantized_weight=use_quantized)
     print("Loading")
-    # checkpoint = torch.load(ckpt_path, map_location="cpu")
-    # with open(Path(ckpt_dir) / "params.json", "r") as f:
-    #     params = json.loads(f.read())
     params = {"dim": dim,
               "n_layers": n_layers,
               "n_heads": n_heads,
@@ -86,14 +77,28 @@ def init(
     )
     tokenizer = Tokenizer(model_path=tokenizer_path)
     model_args.vocab_size = tokenizer.n_words
-    # torch.set_default_tensor_type(torch.cuda.HalfTensor)  # TODO: this line puts the model to cuda device
     torch.set_default_tensor_type(torch.BFloat16Tensor)
-    model = Transformer(model_args)
+    # model = Transformer(model_args)
+    
+    print("finish init model")
     # torch.save(model.state_dict(), "./tranformer.pth")
     # model.load_state_dict(torch.load("./tranformer.pth"))
     if use_fsdp:
-        model = fsdp_wrap(model)
+        model = deferred_init.deferred_init(Transformer, model_args, device=xm.xla_device())
+        model = FSDP(
+            model,
+            compute_dtype=torch.bfloat16,
+            fp32_reduce_scatter=False,
+            flatten_parameters=False,
+            shard_param_on_dim_0=True,
+            pin_layout_in_collective_ops=False,
+            auto_wrap_policy=auto_wrap_policy,
+            param_init_fn=_init_with_torchdistX,
+            quantized_weight=use_quantized,
+        )
+        print("finish fsdp wrapping")
     else:
+        model = Transformer(model_args, device=None)
         device = xm.xla_device()
         model = model.to(device)
     # torch.set_default_tensor_type(torch.FloatTensor)

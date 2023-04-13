@@ -28,7 +28,7 @@ class ModelArgs:
     use_quantized: bool = False
 
 class RMSNorm(torch.nn.Module):
-    def __init__(self, dim: int, eps: float = 1e-6):
+    def __init__(self, dim: int, device: str, eps: float = 1e-6):
         super().__init__()
         self.eps = eps
         self.weight = nn.Parameter(torch.ones(dim))
@@ -72,7 +72,7 @@ def apply_rotary_emb(
 
 
 class Attention(nn.Module):
-    def __init__(self, args: ModelArgs):
+    def __init__(self, args: ModelArgs, device: str):
         super().__init__()
 
         # self.n_local_heads = args.n_heads // fs_init.get_model_parallel_world_size()
@@ -89,20 +89,22 @@ class Attention(nn.Module):
             self.wq = nn.Linear(
                 args.dim,
                 args.n_heads * self.head_dim,
-                bias=False
+                bias=False,
+                device = device,
             )
 
         if args.use_quantized:
             self.wk = LinearQuant(
                 args.dim,
                 args.n_heads * self.head_dim,
-                bias=False
+                bias=False,
             )
         else:
             self.wk = nn.Linear(
                 args.dim,
                 args.n_heads * self.head_dim,
                 bias=False,
+                device = device,
             )
 
         if args.use_quantized:
@@ -116,6 +118,7 @@ class Attention(nn.Module):
                 args.dim,
                 args.n_heads * self.head_dim,
                 bias=False,
+                device = device,
             )
 
         if args.use_quantized:
@@ -129,6 +132,7 @@ class Attention(nn.Module):
                 args.n_heads * self.head_dim,
                 args.dim,
                 bias=False,
+                device = device,
             )
 
         # self.cache_k = torch.zeros(
@@ -191,6 +195,7 @@ class FeedForward(nn.Module):
         hidden_dim: int,
         multiple_of: int,
         use_quantized: bool,
+        device: str,
     ):
         super().__init__()
         hidden_dim = int(2 * hidden_dim / 3)
@@ -203,7 +208,7 @@ class FeedForward(nn.Module):
             )
         else:
             self.w1 = nn.Linear(
-                dim, hidden_dim, bias=False
+                dim, hidden_dim, bias=False, device = device
             )
         
         if use_quantized:
@@ -213,7 +218,7 @@ class FeedForward(nn.Module):
             )
         else:
             self.w2 = nn.Linear(
-                hidden_dim, dim, bias=False
+                hidden_dim, dim, bias=False, device = device
             )
 
         if use_quantized:
@@ -223,7 +228,7 @@ class FeedForward(nn.Module):
             )
         else:
             self.w3 = nn.Linear(
-                dim, hidden_dim, bias=False
+                dim, hidden_dim, bias=False, device = device
             )
 
         # print("Feedforward Linear weight size: {} = {} * {}".format(dim * hidden_dim, dim, hidden_dim))
@@ -233,19 +238,19 @@ class FeedForward(nn.Module):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, layer_id: int, args: ModelArgs):
+    def __init__(self, layer_id: int, args: ModelArgs, device: str):
         super().__init__()
         # print("TransformerBlock start")
         self.n_heads = args.n_heads
         self.dim = args.dim
         self.head_dim = args.dim // args.n_heads
-        self.attention = Attention(args)
+        self.attention = Attention(args, device)
         self.feed_forward = FeedForward(
-            dim=args.dim, hidden_dim=4 * args.dim, multiple_of=args.multiple_of, use_quantized=args.use_quantized
+            dim=args.dim, hidden_dim=4 * args.dim, multiple_of=args.multiple_of, use_quantized=args.use_quantized, device = device
         )
         self.layer_id = layer_id
-        self.attention_norm = RMSNorm(args.dim, eps=args.norm_eps)
-        self.ffn_norm = RMSNorm(args.dim, eps=args.norm_eps)
+        self.attention_norm = RMSNorm(args.dim, device, eps=args.norm_eps)
+        self.ffn_norm = RMSNorm(args.dim, device, eps=args.norm_eps)
         # print("TransformerBlock end")
 
     def forward(self, x: torch.Tensor, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor], input_idexes: torch.Tensor):
@@ -255,21 +260,21 @@ class TransformerBlock(nn.Module):
 
 
 class Transformer(nn.Module):
-    def __init__(self, params: ModelArgs):
+    def __init__(self, params: ModelArgs, device: str):
         super().__init__()
         self.params = params
         self.vocab_size = params.vocab_size
         self.n_layers = params.n_layers
 
         self.tok_embeddings = nn.Embedding(
-            params.vocab_size, params.dim
+            params.vocab_size, params.dim, device = device
         )
 
         self.layers = torch.nn.ModuleList()
         for layer_id in range(params.n_layers):
-            self.layers.append(TransformerBlock(layer_id, params))
+            self.layers.append(TransformerBlock(layer_id, params, device))
 
-        self.norm = RMSNorm(params.dim, eps=params.norm_eps)
+        self.norm = RMSNorm(params.dim, device, eps=params.norm_eps)
         if params.use_quantized:
         # if False:
             self.output = LinearQuant(
@@ -277,15 +282,16 @@ class Transformer(nn.Module):
             )
         else:
             self.output = nn.Linear(
-                params.dim, params.vocab_size, bias=False
+                params.dim, params.vocab_size, bias=False, device=device
             )
         
         # print("Transformer Embedding size {} = {} * {}".format(params.vocab_size * params.dim, params.vocab_size, params.dim))
         # print("Transformer Linear size {} = {} * {}".format(params.dim * params.vocab_size, params.vocab_size, params.dim))
 
-        self.freqs_cis = precompute_freqs_cis(
-            self.params.dim // self.params.n_heads, self.params.max_seq_len * 2
-        )
+        # self.freqs_cis = precompute_freqs_cis(
+        #     self.params.dim // self.params.n_heads, self.params.max_seq_len * 2
+        # )
+        self.freqs_cis = torch.rand((self.params.max_seq_len * 2, int(self.params.dim // self.params.n_heads / 2)), device=device)
         # n_params = 0
         # for param in list(self.parameters()):
         #     print(f"{param.nelement()} : {param.element_size()}")
