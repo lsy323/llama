@@ -16,6 +16,8 @@ from .xla_model_parallel import (
     RowParallelLinear,
     ColumnParallelLinear,
     get_model_parallel_world_size,
+    ColumnParallelLinearQuant,
+    RowParallelLinearQuant,
 )
 
 
@@ -82,28 +84,32 @@ class Attention(nn.Module):
         self.n_local_heads = args.n_heads // get_model_parallel_world_size()
         self.head_dim = args.dim // args.n_heads
 
-        self.wq = ColumnParallelLinear(
+        # self.wq = ColumnParallelLinear(
+        self.wq = ColumnParallelLinearQuant(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False,
             gather_output=False,
             init_method=lambda x: x,
         )
-        self.wk = ColumnParallelLinear(
+        # self.wk = ColumnParallelLinear(
+        self.wk = ColumnParallelLinearQuant(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False,
             gather_output=False,
             init_method=lambda x: x,
         )
-        self.wv = ColumnParallelLinear(
+        # self.wv = ColumnParallelLinear(
+        self.wv = ColumnParallelLinearQuant(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False,
             gather_output=False,
             init_method=lambda x: x,
         )
-        self.wo = RowParallelLinear(
+        # self.wo = RowParallelLinear(
+        self.wo = RowParallelLinearQuant(
             args.n_heads * self.head_dim,
             args.dim,
             bias=False,
@@ -172,13 +178,16 @@ class FeedForward(nn.Module):
         hidden_dim = int(2 * hidden_dim / 3)
         hidden_dim = multiple_of * ((hidden_dim + multiple_of - 1) // multiple_of)
 
-        self.w1 = ColumnParallelLinear(
+        # self.w1 = ColumnParallelLinear(
+        self.w1 = ColumnParallelLinearQuant(
             dim, hidden_dim, bias=False, gather_output=False, init_method=lambda x: x
         )
-        self.w2 = RowParallelLinear(
+        # self.w2 = RowParallelLinear(
+        self.w2 = RowParallelLinearQuant(
             hidden_dim, dim, bias=False, input_is_parallel=True, init_method=lambda x: x
         )
-        self.w3 = ColumnParallelLinear(
+        # self.w3 = ColumnParallelLinear(
+        self.w3 = ColumnParallelLinearQuant(
             dim, hidden_dim, bias=False, gather_output=False, init_method=lambda x: x
         )
 
@@ -222,7 +231,8 @@ class Transformer(nn.Module):
             self.layers.append(TransformerBlock(layer_id, params))
 
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
-        self.output = ColumnParallelLinear(
+        # self.output = ColumnParallelLinear(
+        self.output = ColumnParallelLinearQuant(
             params.dim, params.vocab_size, bias=False, init_method=lambda x: x
         )
 

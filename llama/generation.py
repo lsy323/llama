@@ -85,7 +85,7 @@ class LLaMA:
             # with xp.Trace('trace_generate_one_token'):
             tokens, input_tokens, cur_pos_tensor, input_pos_tensor, output_pos_tensor = self._generate_one_token_fn(tokens, input_tokens, input_text_mask, cur_pos_tensor, input_pos_tensor, output_pos_tensor, temperature, top_p)
             xm.mark_step()
-            print(f"Generated 1 token in {time.time() - token_start_time:.2f} seconds")
+            print(f"Generated 1 token in {time.time() - token_start_time:.5f} seconds")
         print(f"Decoded in {time.time() - decoding_start_time:.2f} seconds")
 
         output_prepare_start_time = time.time()
