@@ -58,7 +58,7 @@ class LinearQuant(torch.nn.Module):
     '''
     def __init__(self, in_feature, out_feature, bias=False, device=None):
         super().__init__()
-        print("in quant linear init")
+        # print("in quant linear init")
         # Set requires_grad is necessary as tensor with grad doesn't support integer tensors.
         self.int8_weights = torch.nn.Parameter(torch.randint(-128, 127, (out_feature, in_feature), dtype=torch.int8, device=device), requires_grad=False)
         # self.int8_weights = torch.nn.Parameter(torch.empty(out_feature, in_feature), requires_grad=False)
