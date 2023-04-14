@@ -84,15 +84,16 @@ def init(
         xm.master_print("finish init model")
         model = FSDP(
             model,
-            # compute_dtype=torch.bfloat16,
-            # fp32_reduce_scatter=False,
-            # flatten_parameters=False,
-            # shard_param_on_dim_0=True,
-            # pin_layout_in_collective_ops=False,
+            compute_dtype=torch.bfloat16,
+            fp32_reduce_scatter=False,
+            flatten_parameters=False,
+            shard_param_on_dim_0=True,
+            pin_layout_in_collective_ops=False,
             auto_wrap_policy=auto_wrap_policy,
-            # auto_wrap_policy=always_wrap,
             param_init_fn=_init_with_torchdistX,
-            # quantized_weight=use_quantized,
+            # optimization_barrier_in_forward = False,
+            # optimization_barrier_in_backward = False,
+            quantized_weight=use_quantized,
         )
         xm.master_print("finish fsdp wrapping")
     else:
