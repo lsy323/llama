@@ -13,8 +13,8 @@ import fairscale.nn.model_parallel.initialize as fs_init
 # from fairscale.nn.model_parallel.layers import (
 from .xla_model_parallel import (
     ParallelEmbedding,
-    RowParallelLinear,
-    ColumnParallelLinear,
+    RowParallelLinearQuant,
+    ColumnParallelLinearQuant,
     get_model_parallel_world_size,
 )
 
@@ -85,28 +85,28 @@ class Attention(nn.Module):
         #init_method = torch.nn.init.normal_
         init_method = lambda x: x
 
-        self.wq = ColumnParallelLinear(
+        self.wq = ColumnParallelLinearQuant(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False,
             gather_output=False,
             init_method=init_method,
         )
-        self.wk = ColumnParallelLinear(
+        self.wk = ColumnParallelLinearQuant(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False,
             gather_output=False,
             init_method=init_method,
         )
-        self.wv = ColumnParallelLinear(
+        self.wv = ColumnParallelLinearQuant(
             args.dim,
             args.n_heads * self.head_dim,
             bias=False,
             gather_output=False,
             init_method=init_method,
         )
-        self.wo = RowParallelLinear(
+        self.wo = RowParallelLinearQuant(
             args.n_heads * self.head_dim,
             args.dim,
             bias=False,
@@ -179,13 +179,13 @@ class FeedForward(nn.Module):
         #init_method = torch.nn.init.normal_
         init_method = lambda x: x
 
-        self.w1 = ColumnParallelLinear(
+        self.w1 = ColumnParallelLinearQuant(
             dim, hidden_dim, bias=False, gather_output=False, init_method=init_method
         )
-        self.w2 = RowParallelLinear(
+        self.w2 = RowParallelLinearQuant(
             hidden_dim, dim, bias=False, input_is_parallel=True, init_method=init_method
         )
-        self.w3 = ColumnParallelLinear(
+        self.w3 = ColumnParallelLinearQuant(
             dim, hidden_dim, bias=False, gather_output=False, init_method=init_method
         )
 
@@ -243,7 +243,7 @@ class Transformer(nn.Module):
             self.cache_kvs.append((cache_k, cache_v))
 
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
-        self.output = ColumnParallelLinear(
+        self.output = ColumnParallelLinearQuant(
             params.dim, params.vocab_size, bias=False, init_method=init_method
         )
 
