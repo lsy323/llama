@@ -47,8 +47,10 @@ def init(
       fp32_reduce_scatter=False,
       flatten_parameters=False,
       shard_param_on_dim_0=False,
-      pin_layout_in_collective_ops=True,
+      pin_layout_in_collective_ops=False,
       auto_wrap_policy=auto_wrap_policy,
+      optimization_barrier_in_forward=True,
+      optimization_barrier_in_backward=True,
       quantized_weight=use_quantized)
     print("Loading")
     # checkpoint = torch.load(ckpt_path, map_location="cpu")
