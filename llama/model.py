@@ -15,6 +15,8 @@ from .xla_model_parallel import (
     ParallelEmbedding,
     RowParallelLinearQuant,
     ColumnParallelLinearQuant,
+    RowParallelLinear,
+    ColumnParallelLinear,
     get_model_parallel_world_size,
 )
 
@@ -30,6 +32,7 @@ class ModelArgs:
 
     max_batch_size: int = 32
     max_seq_len: int = 2048
+    quant: bool = False
 
 
 class RMSNorm(torch.nn.Module):
@@ -85,34 +88,65 @@ class Attention(nn.Module):
         #init_method = torch.nn.init.normal_
         init_method = lambda x: x
 
-        self.wq = ColumnParallelLinearQuant(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=False,
-            gather_output=False,
-            init_method=init_method,
-        )
-        self.wk = ColumnParallelLinearQuant(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=False,
-            gather_output=False,
-            init_method=init_method,
-        )
-        self.wv = ColumnParallelLinearQuant(
-            args.dim,
-            args.n_heads * self.head_dim,
-            bias=False,
-            gather_output=False,
-            init_method=init_method,
-        )
-        self.wo = RowParallelLinearQuant(
-            args.n_heads * self.head_dim,
-            args.dim,
-            bias=False,
-            input_is_parallel=True,
-            init_method=init_method,
-        )
+        if args.quant:
+            self.wq = ColumnParallelLinearQuant(
+                args.dim,
+                args.n_heads * self.head_dim,
+                bias=False,
+                gather_output=False,
+                init_method=init_method,
+            )
+            self.wk = ColumnParallelLinearQuant(
+                args.dim,
+                args.n_heads * self.head_dim,
+                bias=False,
+                gather_output=False,
+                init_method=init_method,
+            )
+            self.wv = ColumnParallelLinearQuant(
+                args.dim,
+                args.n_heads * self.head_dim,
+                bias=False,
+                gather_output=False,
+                init_method=init_method,
+            )
+            self.wo = RowParallelLinearQuant(
+                args.n_heads * self.head_dim,
+                args.dim,
+                bias=False,
+                input_is_parallel=True,
+                init_method=init_method,
+            )
+        else:
+            self.wq = ColumnParallelLinear(
+                args.dim,
+                args.n_heads * self.head_dim,
+                bias=False,
+                gather_output=False,
+                init_method=init_method,
+            )
+            self.wk = ColumnParallelLinear(
+                args.dim,
+                args.n_heads * self.head_dim,
+                bias=False,
+                gather_output=False,
+                init_method=init_method,
+            )
+            self.wv = ColumnParallelLinear(
+                args.dim,
+                args.n_heads * self.head_dim,
+                bias=False,
+                gather_output=False,
+                init_method=init_method,
+            )
+            self.wo = RowParallelLinear(
+                args.n_heads * self.head_dim,
+                args.dim,
+                bias=False,
+                input_is_parallel=True,
+                init_method=init_method,
+            )
+            
 
         # self.cache_k = torch.zeros(
         #     (args.max_batch_size, args.max_seq_len, self.n_local_heads, self.head_dim)
@@ -171,6 +205,7 @@ class FeedForward(nn.Module):
         dim: int,
         hidden_dim: int,
         multiple_of: int,
+        quant: bool,
     ):
         super().__init__()
         hidden_dim = int(2 * hidden_dim / 3)
@@ -179,15 +214,26 @@ class FeedForward(nn.Module):
         #init_method = torch.nn.init.normal_
         init_method = lambda x: x
 
-        self.w1 = ColumnParallelLinearQuant(
-            dim, hidden_dim, bias=False, gather_output=False, init_method=init_method
-        )
-        self.w2 = RowParallelLinearQuant(
-            hidden_dim, dim, bias=False, input_is_parallel=True, init_method=init_method
-        )
-        self.w3 = ColumnParallelLinearQuant(
-            dim, hidden_dim, bias=False, gather_output=False, init_method=init_method
-        )
+        if quant:
+            self.w1 = ColumnParallelLinearQuant(
+                dim, hidden_dim, bias=False, gather_output=False, init_method=init_method
+            )
+            self.w2 = RowParallelLinearQuant(
+                hidden_dim, dim, bias=False, input_is_parallel=True, init_method=init_method
+            )
+            self.w3 = ColumnParallelLinearQuant(
+                dim, hidden_dim, bias=False, gather_output=False, init_method=init_method
+            )
+        else:
+            self.w1 = ColumnParallelLinear(
+                dim, hidden_dim, bias=False, gather_output=False, init_method=init_method
+            )
+            self.w2 = RowParallelLinear(
+                hidden_dim, dim, bias=False, input_is_parallel=True, init_method=init_method
+            )
+            self.w3 = ColumnParallelLinear(
+                dim, hidden_dim, bias=False, gather_output=False, init_method=init_method
+            )
 
     def forward(self, x):
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
@@ -201,7 +247,7 @@ class TransformerBlock(nn.Module):
         self.head_dim = args.dim // args.n_heads
         self.attention = Attention(args)
         self.feed_forward = FeedForward(
-            dim=args.dim, hidden_dim=4 * args.dim, multiple_of=args.multiple_of
+            dim=args.dim, hidden_dim=4 * args.dim, multiple_of=args.multiple_of, quant=args.quant
         )
         self.layer_id = layer_id
         self.attention_norm = RMSNorm(args.dim, eps=args.norm_eps)
@@ -243,9 +289,14 @@ class Transformer(nn.Module):
             self.cache_kvs.append((cache_k, cache_v))
 
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
-        self.output = ColumnParallelLinearQuant(
-            params.dim, params.vocab_size, bias=False, init_method=init_method
-        )
+        if params.quant:
+            self.output = ColumnParallelLinearQuant(
+                params.dim, params.vocab_size, bias=False, init_method=init_method
+            )
+        else:
+            self.output = ColumnParallelLinear(
+                params.dim, params.vocab_size, bias=False, init_method=init_method
+            )
 
         freqs_cis = precompute_freqs_cis(
             self.params.dim // self.params.n_heads, self.params.max_seq_len * 2
