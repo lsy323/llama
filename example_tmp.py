@@ -39,6 +39,7 @@ def init(
     dim: int = 4096,
     n_layers: int = 32,
     n_heads: int = 32,
+    quant: bool = False,
 ) -> LLaMA:
     start_time = time.time()
     # checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
@@ -53,6 +54,7 @@ def init(
     params = {"dim": dim,
               "n_layers": n_layers,
               "n_heads": n_heads,
+              "quant": quant,
               }
     model_args: ModelArgs = ModelArgs(
         max_seq_len=max_seq_len, max_batch_size=max_batch_size, **params
@@ -83,6 +85,7 @@ def main(
     dim: int = 4096,
     n_layers: int = 32,
     n_heads: int = 32,
+    quant: bool = False,
 ):
     server = xp.start_server(9012, only_on_master=False)
     rank, world_size = setup_model_parallel()
@@ -90,7 +93,7 @@ def main(
         sys.stdout = open(os.devnull, "w")
 
     generator = init(
-        tokenizer_path, rank, world_size, max_seq_len, max_batch_size, dim, n_layers, n_heads
+        tokenizer_path, rank, world_size, max_seq_len, max_batch_size, dim, n_layers, n_heads, quant
     )
 
     prompts = [
@@ -141,8 +144,9 @@ def _fn(
     dim: int = 4096,
     n_layers: int = 32,
     n_heads: int = 32,
+    quant: bool = False,
 ):
-    main(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads)
+    main(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads, quant)
 
 def mp_main(
     mp: bool,
@@ -154,11 +158,12 @@ def mp_main(
     dim: int = 4096,
     n_layers: int = 32,
     n_heads: int = 32,
+    quant: bool = False,
 ):
     if mp:
-        xmp.spawn(_fn, args=(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads))
+        xmp.spawn(_fn, args=(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads, quant))
     else:
-        main(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads)
+        main(tokenizer_path, temperature, top_p, max_seq_len, max_batch_size, dim, n_layers, n_heads, quant)
 
 
 if __name__ == "__main__":
